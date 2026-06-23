@@ -1,6 +1,5 @@
 const { Events, ChannelType, PermissionFlagsBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
-const GuildConfig = require('../schemas/GuildConfig');
-const Ticket = require('../schemas/Ticket');
+const supabase = require('../../database/supabase');
 
 module.exports = {
     name: Events.InteractionCreate,
@@ -31,19 +30,21 @@ module.exports = {
 };
 
 async function handleCreateTicket(interaction) {
-    const config = await GuildConfig.findOne({ guildId: interaction.guild.id });
-    if (!config || !config.ticketConfig.categoryId) {
+    const guildId = interaction.guild.id;
+    const { data: config } = await supabase.from('guild_config').select('*').eq('guild_id', guildId).single();
+    
+    if (!config || !config.ticket_category_id) {
         return interaction.reply({ content: 'The ticket system is not fully configured yet.', ephemeral: true });
     }
 
-    const category = interaction.guild.channels.cache.get(config.ticketConfig.categoryId);
+    const category = interaction.guild.channels.cache.get(config.ticket_category_id);
     if (!category) {
         return interaction.reply({ content: 'The configured ticket category does not exist anymore.', ephemeral: true });
     }
 
-    const existingTicket = await Ticket.findOne({ guildId: interaction.guild.id, ownerId: interaction.user.id, status: 'open' });
+    const { data: existingTicket } = await supabase.from('tickets').select('*').eq('guild_id', guildId).eq('owner_id', interaction.user.id).eq('status', 'open').single();
     if (existingTicket) {
-        return interaction.reply({ content: `You already have an open ticket: <#${existingTicket.channelId}>`, ephemeral: true });
+        return interaction.reply({ content: `You already have an open ticket: <#${existingTicket.channel_id}>`, ephemeral: true });
     }
 
     await interaction.deferReply({ ephemeral: true });
@@ -59,9 +60,9 @@ async function handleCreateTicket(interaction) {
         }
     ];
 
-    if (config.ticketConfig.staffRoleId) {
+    if (config.ticket_staff_role_id) {
         permissionOverwrites.push({
-            id: config.ticketConfig.staffRoleId,
+            id: config.ticket_staff_role_id,
             allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory],
         });
     }
@@ -73,12 +74,11 @@ async function handleCreateTicket(interaction) {
         permissionOverwrites: permissionOverwrites
     });
 
-    const newTicket = new Ticket({
-        guildId: interaction.guild.id,
-        channelId: ticketChannel.id,
-        ownerId: interaction.user.id
-    });
-    await newTicket.save();
+    await supabase.from('tickets').insert([{
+        guild_id: guildId,
+        channel_id: ticketChannel.id,
+        owner_id: interaction.user.id
+    }]);
 
     const embed = new EmbedBuilder()
         .setTitle('Ticket Created')
@@ -98,18 +98,16 @@ async function handleCreateTicket(interaction) {
 }
 
 async function handleCloseTicket(interaction) {
-    const ticket = await Ticket.findOne({ channelId: interaction.channel.id });
+    const { data: ticket } = await supabase.from('tickets').select('*').eq('channel_id', interaction.channel.id).single();
     if (!ticket) {
         return interaction.reply({ content: 'This is not a recognized ticket channel.', ephemeral: true });
     }
 
     await interaction.deferReply();
     
-    // For this simple version, we'll just set it to closed and lock the channel for the user
-    ticket.status = 'closed';
-    await ticket.save();
+    await supabase.from('tickets').update({ status: 'closed' }).eq('channel_id', interaction.channel.id);
 
-    await interaction.channel.permissionOverwrites.edit(ticket.ownerId, {
+    await interaction.channel.permissionOverwrites.edit(ticket.owner_id, {
         ViewChannel: false
     });
 

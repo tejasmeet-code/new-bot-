@@ -1,5 +1,5 @@
 const { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder } = require('discord.js');
-const GuildConfig = require('../../schemas/GuildConfig');
+const supabase = require('../../database/supabase');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -16,13 +16,13 @@ module.exports = {
                         .setDescription('The log category')
                         .setRequired(true)
                         .addChoices(
-                            { name: 'Moderation', value: 'moderation' },
-                            { name: 'Messages', value: 'messages' },
-                            { name: 'Members', value: 'members' },
-                            { name: 'Roles', value: 'roles' },
-                            { name: 'Channels', value: 'channels' },
-                            { name: 'Voice', value: 'voice' },
-                            { name: 'Automod', value: 'automod' }
+                            { name: 'Moderation', value: 'log_moderation' },
+                            { name: 'Messages', value: 'log_messages' },
+                            { name: 'Members', value: 'log_members' },
+                            { name: 'Roles', value: 'log_roles' },
+                            { name: 'Channels', value: 'log_channels' },
+                            { name: 'Voice', value: 'log_voice' },
+                            { name: 'Automod', value: 'log_automod' }
                         )
                 )
                 .addChannelOption(option => option.setName('channel').setDescription('The channel to send logs to').setRequired(true))
@@ -36,13 +36,13 @@ module.exports = {
                         .setDescription('The log category')
                         .setRequired(true)
                         .addChoices(
-                            { name: 'Moderation', value: 'moderation' },
-                            { name: 'Messages', value: 'messages' },
-                            { name: 'Members', value: 'members' },
-                            { name: 'Roles', value: 'roles' },
-                            { name: 'Channels', value: 'channels' },
-                            { name: 'Voice', value: 'voice' },
-                            { name: 'Automod', value: 'automod' },
+                            { name: 'Moderation', value: 'log_moderation' },
+                            { name: 'Messages', value: 'log_messages' },
+                            { name: 'Members', value: 'log_members' },
+                            { name: 'Roles', value: 'log_roles' },
+                            { name: 'Channels', value: 'log_channels' },
+                            { name: 'Voice', value: 'log_voice' },
+                            { name: 'Automod', value: 'log_automod' },
                             { name: 'All', value: 'all' }
                         )
                 )
@@ -54,33 +54,37 @@ module.exports = {
         ),
     async execute(interaction) {
         const subcommand = interaction.options.getSubcommand();
-        let config = await GuildConfig.findOne({ guildId: interaction.guild.id });
-        if (!config) config = new GuildConfig({ guildId: interaction.guild.id });
+        const guildId = interaction.guild.id;
+
+        // Ensure config exists
+        let { data: config } = await supabase.from('guild_config').select('*').eq('guild_id', guildId).single();
+        if (!config) {
+            await supabase.from('guild_config').insert([{ guild_id: guildId }]);
+            config = { guild_id: guildId };
+        }
 
         if (subcommand === 'setup') {
             const category = interaction.options.getString('category');
             const channel = interaction.options.getChannel('channel');
 
-            config.logChannels[category] = channel.id;
-            await config.save();
+            await supabase.from('guild_config').update({ [category]: channel.id }).eq('guild_id', guildId);
 
             const embed = new EmbedBuilder()
                 .setColor('#00ff00')
-                .setDescription(`✅ **${category}** logs will now be sent to ${channel}.`);
+                .setDescription(`✅ Logs will now be sent to ${channel}.`);
             await interaction.reply({ embeds: [embed] });
             
         } else if (subcommand === 'disable') {
             const category = interaction.options.getString('category');
             
             if (category === 'all') {
-                config.logChannels = {
-                    moderation: null, messages: null, members: null, 
-                    roles: null, channels: null, voice: null, automod: null
-                };
+                await supabase.from('guild_config').update({
+                    log_moderation: null, log_messages: null, log_members: null, 
+                    log_roles: null, log_channels: null, log_voice: null, log_automod: null
+                }).eq('guild_id', guildId);
             } else {
-                config.logChannels[category] = null;
+                await supabase.from('guild_config').update({ [category]: null }).eq('guild_id', guildId);
             }
-            await config.save();
 
             const embed = new EmbedBuilder()
                 .setColor('#00ff00')
@@ -92,11 +96,12 @@ module.exports = {
                 .setTitle('Logging Configuration')
                 .setColor('#2b2d31');
 
-            const categories = ['moderation', 'messages', 'members', 'roles', 'channels', 'voice', 'automod'];
+            const categories = ['log_moderation', 'log_messages', 'log_members', 'log_roles', 'log_channels', 'log_voice', 'log_automod'];
             let desc = '';
             categories.forEach(cat => {
-                const channelId = config.logChannels[cat];
-                desc += `**${cat.charAt(0).toUpperCase() + cat.slice(1)}:** ${channelId ? `<#${channelId}>` : 'Disabled'}\n`;
+                const channelId = config[cat];
+                const cleanName = cat.replace('log_', '').charAt(0).toUpperCase() + cat.replace('log_', '').slice(1);
+                desc += `**${cleanName}:** ${channelId ? `<#${channelId}>` : 'Disabled'}\n`;
             });
             
             embed.setDescription(desc || 'No logging configured.');

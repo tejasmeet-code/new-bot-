@@ -1,5 +1,5 @@
 const { Events } = require('discord.js');
-const AutoResponse = require('../schemas/AutoResponse');
+const supabase = require('../../database/supabase');
 
 module.exports = {
     name: Events.MessageCreate,
@@ -7,21 +7,24 @@ module.exports = {
         if (message.author.bot || !message.guild) return;
 
         const content = message.content.toLowerCase();
+        const guildId = message.guild.id;
 
         // 1. Auto-Responder & Auto-React
         try {
-            const responses = await AutoResponse.find({ guildId: message.guild.id });
-            for (const ar of responses) {
-                let isMatch = false;
-                if (ar.matchType === 'exact' && content === ar.trigger) isMatch = true;
-                if (ar.matchType === 'includes' && content.includes(ar.trigger)) isMatch = true;
+            const { data: responses } = await supabase.from('auto_responses').select('*').eq('guild_id', guildId);
+            if (responses) {
+                for (const ar of responses) {
+                    let isMatch = false;
+                    if (ar.match_type === 'exact' && content === ar.trigger) isMatch = true;
+                    if (ar.match_type === 'includes' && content.includes(ar.trigger)) isMatch = true;
 
-                if (isMatch) {
-                    if (ar.reply) {
-                        message.channel.send(ar.reply).catch(() => {});
-                    }
-                    if (ar.react) {
-                        message.react(ar.react).catch(() => {});
+                    if (isMatch) {
+                        if (ar.reply) {
+                            message.channel.send(ar.reply).catch(() => {});
+                        }
+                        if (ar.react) {
+                            message.react(ar.react).catch(() => {});
+                        }
                     }
                 }
             }
@@ -47,14 +50,7 @@ module.exports = {
         }
 
         if (!commandName) return;
-
-        // Try to execute a traditional command if we had a collection for them.
-        // For this project, we mainly rely on Slash commands for the core features.
-        // If you want prefix commands to work exactly like the slash commands, 
-        // you would need to map prefix commands to slash command execution logic.
-        // For now, this listens to the prefix and logs it.
         
-        // Example simple prefix command response:
         if (commandName === 'ping') {
             return message.reply('Pong!');
         }

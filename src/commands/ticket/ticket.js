@@ -1,5 +1,5 @@
 const { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType } = require('discord.js');
-const GuildConfig = require('../../schemas/GuildConfig');
+const supabase = require('../../database/supabase');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -21,8 +21,6 @@ module.exports = {
                 .setDescription('Send the ticket creation panel')
                 .addChannelOption(option => option.setName('channel').setDescription('Where to send the panel').addChannelTypes(ChannelType.GuildText).setRequired(false))
         )
-        // Note: The rest of the commands (close, add, remove, claim) can be added as subcommands or handled via buttons/in-ticket commands.
-        // For wick-like behavior, they are usually commands run inside the ticket.
         .addSubcommand(subcommand => subcommand.setName('close').setDescription('Close the current ticket'))
         .addSubcommand(subcommand => subcommand.setName('delete').setDescription('Delete the current ticket'))
         .addSubcommand(subcommand => subcommand.setName('reopen').setDescription('Reopen a closed ticket'))
@@ -41,20 +39,24 @@ module.exports = {
         ),
     async execute(interaction) {
         const subcommand = interaction.options.getSubcommand();
-        let config = await GuildConfig.findOne({ guildId: interaction.guild.id });
-        if (!config) config = new GuildConfig({ guildId: interaction.guild.id });
+        const guildId = interaction.guild.id;
+
+        let { data: config } = await supabase.from('guild_config').select('*').eq('guild_id', guildId).single();
+        if (!config) {
+            await supabase.from('guild_config').insert([{ guild_id: guildId }]);
+            config = { guild_id: guildId };
+        }
 
         if (subcommand === 'setup') {
             const category = interaction.options.getChannel('category');
             const transcriptChannel = interaction.options.getChannel('transcript_channel');
             const staffRole = interaction.options.getRole('staff_role');
 
-            config.ticketConfig = {
-                categoryId: category.id,
-                transcriptChannelId: transcriptChannel.id,
-                staffRoleId: staffRole ? staffRole.id : null
-            };
-            await config.save();
+            await supabase.from('guild_config').update({
+                ticket_category_id: category.id,
+                ticket_transcript_channel_id: transcriptChannel.id,
+                ticket_staff_role_id: staffRole ? staffRole.id : null
+            }).eq('guild_id', guildId);
 
             const embed = new EmbedBuilder()
                 .setColor('#00ff00')
@@ -65,7 +67,7 @@ module.exports = {
         } else if (subcommand === 'panel') {
             const channel = interaction.options.getChannel('channel') || interaction.channel;
 
-            if (!config.ticketConfig.categoryId) {
+            if (!config.ticket_category_id) {
                 return interaction.reply({ content: 'Please run `/ticket setup` first.', ephemeral: true });
             }
 
@@ -85,31 +87,28 @@ module.exports = {
             await channel.send({ embeds: [embed], components: [row] });
             await interaction.reply({ content: `Panel sent to ${channel}.`, ephemeral: true });
         } else {
-            const ticket = await Ticket.findOne({ channelId: interaction.channel.id });
+            const { data: ticket } = await supabase.from('tickets').select('*').eq('channel_id', interaction.channel.id).single();
             if (!ticket) {
                 return interaction.reply({ content: 'This command can only be used inside a ticket channel.', ephemeral: true });
             }
 
             if (subcommand === 'close') {
-                ticket.status = 'closed';
-                await ticket.save();
-                await interaction.channel.permissionOverwrites.edit(ticket.ownerId, { ViewChannel: false });
+                await supabase.from('tickets').update({ status: 'closed' }).eq('channel_id', interaction.channel.id);
+                await interaction.channel.permissionOverwrites.edit(ticket.owner_id, { ViewChannel: false });
                 await interaction.reply({ embeds: [new EmbedBuilder().setColor('#ff0000').setDescription('Ticket closed.')] });
             } else if (subcommand === 'reopen') {
-                ticket.status = 'open';
-                await ticket.save();
-                await interaction.channel.permissionOverwrites.edit(ticket.ownerId, { ViewChannel: true });
+                await supabase.from('tickets').update({ status: 'open' }).eq('channel_id', interaction.channel.id);
+                await interaction.channel.permissionOverwrites.edit(ticket.owner_id, { ViewChannel: true });
                 await interaction.reply({ embeds: [new EmbedBuilder().setColor('#00ff00').setDescription('Ticket reopened.')] });
             } else if (subcommand === 'delete') {
+                await supabase.from('tickets').delete().eq('channel_id', interaction.channel.id);
                 await interaction.reply('Deleting ticket in 5 seconds...');
                 setTimeout(() => interaction.channel.delete(), 5000);
             } else if (subcommand === 'claim') {
-                ticket.claimedBy = interaction.user.id;
-                await ticket.save();
+                await supabase.from('tickets').update({ claimed_by: interaction.user.id }).eq('channel_id', interaction.channel.id);
                 await interaction.reply({ embeds: [new EmbedBuilder().setColor('#ffff00').setDescription(`Ticket claimed by ${interaction.user}.`)] });
             } else if (subcommand === 'unclaim') {
-                ticket.claimedBy = null;
-                await ticket.save();
+                await supabase.from('tickets').update({ claimed_by: null }).eq('channel_id', interaction.channel.id);
                 await interaction.reply({ embeds: [new EmbedBuilder().setColor('#ffff00').setDescription('Ticket unclaimed.')] });
             } else if (subcommand === 'add') {
                 const user = interaction.options.getUser('user');
@@ -130,11 +129,11 @@ module.exports = {
                     poweredBy: false
                 });
 
-                if (config.ticketConfig.transcriptChannelId) {
-                    const tChannel = interaction.guild.channels.cache.get(config.ticketConfig.transcriptChannelId);
+                if (config.ticket_transcript_channel_id) {
+                    const tChannel = interaction.guild.channels.cache.get(config.ticket_transcript_channel_id);
                     if (tChannel) {
                         await tChannel.send({
-                            content: `Transcript for ticket \`${interaction.channel.name}\` (Owner: <@${ticket.ownerId}>)`,
+                            content: `Transcript for ticket \`${interaction.channel.name}\` (Owner: <@${ticket.owner_id}>)`,
                             files: [attachment]
                         });
                     }

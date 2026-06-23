@@ -1,5 +1,5 @@
 const { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder } = require('discord.js');
-const AutoResponse = require('../../schemas/AutoResponse');
+const supabase = require('../../database/supabase');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -24,23 +24,31 @@ module.exports = {
     async execute(interaction) {
         const subcommand = interaction.options.getSubcommand();
         const trigger = interaction.options.getString('trigger').toLowerCase();
+        const guildId = interaction.guild.id;
 
         if (subcommand === 'add') {
             const reply = interaction.options.getString('reply');
             const matchType = interaction.options.getString('match_type') || 'exact';
 
-            let ar = await AutoResponse.findOne({ guildId: interaction.guild.id, trigger: trigger });
+            const { data: ar } = await supabase.from('auto_responses').select('*').eq('guild_id', guildId).eq('trigger', trigger).single();
+            
             if (!ar) {
-                ar = new AutoResponse({ guildId: interaction.guild.id, trigger });
+                await supabase.from('auto_responses').insert([{ guild_id: guildId, trigger, reply, match_type: matchType }]);
+            } else {
+                await supabase.from('auto_responses').update({ reply, match_type: matchType }).eq('id', ar.id);
             }
-            ar.reply = reply;
-            ar.matchType = matchType;
-            await ar.save();
 
             const embed = new EmbedBuilder().setColor('#00ff00').setDescription(`✅ Auto-responder added for \`${trigger}\`.\nReply: ${reply}`);
             await interaction.reply({ embeds: [embed] });
         } else if (subcommand === 'remove') {
-            await AutoResponse.findOneAndDelete({ guildId: interaction.guild.id, trigger: trigger });
+            const { data: ar } = await supabase.from('auto_responses').select('*').eq('guild_id', guildId).eq('trigger', trigger).single();
+            if (ar) {
+                if (!ar.react) {
+                    await supabase.from('auto_responses').delete().eq('id', ar.id);
+                } else {
+                    await supabase.from('auto_responses').update({ reply: null }).eq('id', ar.id);
+                }
+            }
             const embed = new EmbedBuilder().setColor('#ff0000').setDescription(`✅ Removed auto-responder for \`${trigger}\`.`);
             await interaction.reply({ embeds: [embed] });
         }

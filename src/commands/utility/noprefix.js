@@ -1,5 +1,5 @@
 const { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder } = require('discord.js');
-const UserConfig = require('../../schemas/UserConfig');
+const supabase = require('../../database/supabase');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -24,11 +24,7 @@ module.exports = {
         const user = interaction.options.getUser('user');
 
         if (subcommand === 'add') {
-            await UserConfig.findOneAndUpdate(
-                { userId: user.id }, 
-                { noPrefix: true },
-                { upsert: true, new: true }
-            );
+            await supabase.from('user_config').upsert({ user_id: user.id, no_prefix: true });
             
             // Update client cache
             interaction.client.noPrefixUsers.add(user.id);
@@ -36,7 +32,7 @@ module.exports = {
             const embed = new EmbedBuilder().setColor('#00ff00').setDescription(`✅ ${user} can now use commands without a prefix.`);
             await interaction.reply({ embeds: [embed] });
         } else if (subcommand === 'remove') {
-            await UserConfig.findOneAndDelete({ userId: user.id });
+            await supabase.from('user_config').delete().eq('user_id', user.id);
             
             // Update client cache
             interaction.client.noPrefixUsers.delete(user.id);

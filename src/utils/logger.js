@@ -1,14 +1,16 @@
-const GuildConfig = require('../schemas/GuildConfig');
+const supabase = require('../../database/supabase');
 const { EmbedBuilder } = require('discord.js');
 
 async function sendLog(guild, type, embedOptions) {
     if (!guild) return;
 
     try {
-        const config = await GuildConfig.findOne({ guildId: guild.id });
-        if (!config || !config.logChannels || !config.logChannels[type]) return;
+        const { data: config } = await supabase.from('guild_config').select('*').eq('guild_id', guild.id).single();
+        const columnName = `log_${type}`;
 
-        const channelId = config.logChannels[type];
+        if (!config || !config[columnName]) return;
+
+        const channelId = config[columnName];
         const channel = guild.channels.cache.get(channelId);
         if (!channel) return;
 
