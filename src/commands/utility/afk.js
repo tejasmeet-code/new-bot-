@@ -31,6 +31,17 @@ async function setAfk(userId, reason, context) {
         if (!context.client.afkUsers) context.client.afkUsers = new Map();
         context.client.afkUsers.set(userId, { reason, timestamp });
 
+        // Change nickname
+        try {
+            const member = context.member || await context.guild.members.fetch(userId);
+            if (member && member.manageable) {
+                const newNick = `[AFK]${member.displayName}`.slice(0, 32);
+                await member.setNickname(newNick);
+            }
+        } catch (e) {
+            console.error('Failed to change nickname:', e);
+        }
+
         const embed = new EmbedBuilder()
             .setColor('#ffff00')
             .setDescription(`✅ You are now AFK: **${reason}**`);

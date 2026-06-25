@@ -17,6 +17,14 @@ module.exports = {
             client.afkUsers.delete(message.author.id);
             await supabase.from('afk_users').delete().eq('user_id', message.author.id);
             message.reply(`Welcome back ${message.author}! I've removed your AFK status.`).catch(() => {});
+
+            try {
+                if (message.member && message.member.manageable && message.member.displayName.startsWith('[AFK]')) {
+                    await message.member.setNickname(message.member.displayName.replace('[AFK]', ''));
+                }
+            } catch (e) {
+                console.error('Failed to restore nickname:', e);
+            }
         }
 
         // Check if mentioned users are AFK
