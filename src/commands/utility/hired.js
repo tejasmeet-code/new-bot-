@@ -19,6 +19,13 @@ module.exports = {
 
         try {
             await targetMember.roles.add([ROLE_1_ID, ROLE_2_ID]);
+
+            const dmEmbed = new EmbedBuilder()
+                .setColor('#00ff00')
+                .setTitle('<:giveaway:1517478245233201242> Congratulations!')
+                .setDescription(`You have been officially hired in **${interaction.guild.name}**!\nWelcome to the team!`);
+            await targetUser.send({ embeds: [dmEmbed] }).catch(() => null);
+
             const embed = new EmbedBuilder()
                 .setColor('#00ff00')
                 .setDescription(`<:tick:1517479233784643634> Successfully hired ${targetUser} and granted the roles.`);
@@ -47,6 +54,13 @@ module.exports = {
 
         try {
             await targetMember.roles.add([ROLE_1_ID, ROLE_2_ID]);
+
+            const dmEmbed = new EmbedBuilder()
+                .setColor('#00ff00')
+                .setTitle('<:giveaway:1517478245233201242> Congratulations!')
+                .setDescription(`You have been officially hired in **${message.guild.name}**!\nWelcome to the team!`);
+            await targetMember.user.send({ embeds: [dmEmbed] }).catch(() => null);
+
             const embed = new EmbedBuilder()
                 .setColor('#00ff00')
                 .setDescription(`<:tick:1517479233784643634> Successfully hired ${targetMember.user} and granted the roles.`);
