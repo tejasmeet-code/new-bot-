@@ -124,8 +124,9 @@ module.exports = {
                 if (!emoji) return message.reply('Please specify an emoji.');
 
                 if (subcommand === 'user') {
-                    const user = message.mentions.users.first() || message.client.users.cache.get(target);
-                    if (!user) return message.reply('Invalid user specified.');
+                    const targetId = target.replace(/[<@!>]/g, '');
+                    const user = message.mentions.users.first() || await message.client.users.fetch(targetId).catch(() => null);
+                    if (!user) return message.reply('<:failure:1517469374594945134> Invalid user specified.');
                     trigger = user.id;
                     matchType = 'user';
                     displayTrigger = `${user}`;

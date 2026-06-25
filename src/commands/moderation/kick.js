@@ -44,7 +44,8 @@ module.exports = {
     },
     async executeText(message, args) {
         if (!message.member.permissions.has(PermissionFlagsBits.KickMembers)) return message.reply('You do not have permission to use this command.');
-        const target = message.mentions.users.first() || message.client.users.cache.get(args[0]);
+        const targetId = args[0] ? args[0].replace(/[<@!>]/g, '') : null;
+        const target = message.mentions.users.first() || (targetId ? await message.client.users.fetch(targetId).catch(() => null) : null);
         if (!target) return message.reply('Please mention a user or provide their ID to kick.');
         const reason = args.slice(1).join(' ') || 'No reason provided';
         const member = await message.guild.members.fetch(target.id).catch(() => null);

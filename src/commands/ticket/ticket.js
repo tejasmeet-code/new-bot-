@@ -201,13 +201,15 @@ module.exports = {
                 await supabase.from('tickets').update({ claimed_by: null }).eq('channel_id', message.channel.id);
                 await message.reply({ embeds: [new EmbedBuilder().setColor('#ffff00').setDescription('Ticket unclaimed.')] });
             } else if (subcommand === 'add') {
-                const user = message.mentions.users.first();
-                if (!user) return message.reply('Please mention a user.');
+                const targetId = args[1] ? args[1].replace(/[<@!>]/g, '') : null;
+                const user = message.mentions.users.first() || (targetId ? await message.client.users.fetch(targetId).catch(() => null) : null);
+                if (!user) return message.reply('<:failure:1517469374594945134> Please mention a user or provide their ID.');
                 await message.channel.permissionOverwrites.edit(user.id, { ViewChannel: true, SendMessages: true });
                 await message.reply({ embeds: [new EmbedBuilder().setColor('#00ff00').setDescription(`${user} added to the ticket.`)] });
             } else if (subcommand === 'remove') {
-                const user = message.mentions.users.first();
-                if (!user) return message.reply('Please mention a user.');
+                const targetId = args[1] ? args[1].replace(/[<@!>]/g, '') : null;
+                const user = message.mentions.users.first() || (targetId ? await message.client.users.fetch(targetId).catch(() => null) : null);
+                if (!user) return message.reply('<:failure:1517469374594945134> Please mention a user or provide their ID.');
                 await message.channel.permissionOverwrites.edit(user.id, { ViewChannel: false });
                 await message.reply({ embeds: [new EmbedBuilder().setColor('#ff0000').setDescription(`${user} removed from the ticket.`)] });
             } else if (subcommand === 'transcript') {

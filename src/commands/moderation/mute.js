@@ -55,7 +55,8 @@ module.exports = {
             return message.reply('<:failure:1517469374594945134> You do not have permission to use this command.');
         }
 
-        const target = message.mentions.users.first() || message.client.users.cache.get(args[0]);
+        const targetId = args[0] ? args[0].replace(/[<@!>]/g, '') : null;
+        const target = message.mentions.users.first() || (targetId ? await message.client.users.fetch(targetId).catch(() => null) : null);
         if (!target) return message.reply('<:failure:1517469374594945134> Please mention a user or provide their ID to mute.');
 
         const durationInput = args[1];

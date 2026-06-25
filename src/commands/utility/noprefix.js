@@ -46,8 +46,9 @@ module.exports = {
         const subcommand = args[0]?.toLowerCase();
         if (!['add', 'remove'].includes(subcommand)) return message.reply('Please specify a subcommand: `add` or `remove`.');
         
-        const user = message.mentions.users.first() || message.client.users.cache.get(args[1]);
-        if (!user) return message.reply('Please mention a user.');
+        const userId = args[1] ? args[1].replace(/[<@!>]/g, '') : null;
+        const user = message.mentions.users.first() || (userId ? await message.client.users.fetch(userId).catch(() => null) : null);
+        if (!user) return message.reply('<:failure:1517469374594945134> Please mention a user or provide their ID.');
 
         if (subcommand === 'add') {
             await supabase.from('user_config').upsert({ user_id: user.id, no_prefix: true });
