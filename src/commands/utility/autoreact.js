@@ -100,8 +100,19 @@ module.exports = {
     },
     async executeText(message, args) {
         if (!message.member.permissions.has(PermissionFlagsBits.ManageMessages)) return message.reply('You do not have permission to use this command.');
-        const subcommand = args[0]?.toLowerCase();
-        if (!['user', 'channel', 'text', 'remove'].includes(subcommand)) return message.reply('Please specify a subcommand: `user`, `channel`, `text`, or `remove`.');
+        let subcommand = args[0]?.toLowerCase();
+        if (!['user', 'channel', 'text', 'remove'].includes(subcommand)) {
+            if (message.mentions.users.size > 0 || /^<@!?\d+>$/.test(args[0])) {
+                args.unshift('user');
+            } else if (message.mentions.channels.size > 0 || /^<#\d+>$/.test(args[0])) {
+                args.unshift('channel');
+            } else if (subcommand) {
+                args.unshift('text');
+            } else {
+                return message.reply('Usage: `$autoreact <phrase> <emoji>` OR `$autoreact <@user> <emoji>` OR `$autoreact <#channel> <emoji>`');
+            }
+            subcommand = args[0].toLowerCase();
+        }
 
         const guildId = message.guild.id;
 
