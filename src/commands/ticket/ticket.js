@@ -20,6 +20,10 @@ module.exports = {
                 .setName('panel')
                 .setDescription('Send the ticket creation panel')
                 .addChannelOption(option => option.setName('channel').setDescription('Where to send the panel').addChannelTypes(ChannelType.GuildText).setRequired(false))
+                .addStringOption(option => option.setName('title').setDescription('Panel title').setRequired(false))
+                .addStringOption(option => option.setName('description').setDescription('Panel description').setRequired(false))
+                .addStringOption(option => option.setName('button_label').setDescription('Button label').setRequired(false))
+                .addStringOption(option => option.setName('button_emoji').setDescription('Button emoji').setRequired(false))
         )
         .addSubcommand(subcommand => subcommand.setName('close').setDescription('Close the current ticket'))
         .addSubcommand(subcommand => subcommand.setName('delete').setDescription('Delete the current ticket'))
@@ -71,16 +75,21 @@ module.exports = {
                 return interaction.reply({ content: 'Please run `/ticket setup` first.', ephemeral: true });
             }
 
+            const title = interaction.options.getString('title') || 'Support Tickets';
+            const description = interaction.options.getString('description') || 'Click the button below to open a ticket.';
+            const buttonLabel = interaction.options.getString('button_label') || 'Create Ticket';
+            const buttonEmoji = interaction.options.getString('button_emoji') || '🎫';
+
             const embed = new EmbedBuilder()
-                .setTitle('Support Tickets')
-                .setDescription('Click the button below to open a ticket.')
+                .setTitle(title)
+                .setDescription(description.replace(/\\n/g, '\n'))
                 .setColor('#2b2d31');
 
             const button = new ButtonBuilder()
                 .setCustomId('create_ticket')
-                .setLabel('Create Ticket')
+                .setLabel(buttonLabel)
                 .setStyle(ButtonStyle.Primary)
-                .setEmoji('🎫');
+                .setEmoji(buttonEmoji);
 
             const row = new ActionRowBuilder().addComponents(button);
 
@@ -173,8 +182,26 @@ module.exports = {
         } else if (subcommand === 'panel') {
             const channel = message.mentions.channels.first() || message.channel;
             if (!config.ticket_category_id) return message.reply('Please run setup first.');
-            const embed = new EmbedBuilder().setTitle('Support Tickets').setDescription('Click the button below to open a ticket.').setColor('#2b2d31');
-            const button = new ButtonBuilder().setCustomId('create_ticket').setLabel('Create Ticket').setStyle(ButtonStyle.Primary).setEmoji('🎫');
+
+            const matches = message.content.match(/"([^"]+)"/g);
+            let title = 'Support Tickets';
+            let description = 'Click the button below to open a ticket.';
+            let buttonLabel = 'Create Ticket';
+            let buttonEmoji = '🎫';
+
+            if (matches && matches.length >= 1) title = matches[0].replace(/"/g, '');
+            if (matches && matches.length >= 2) description = matches[1].replace(/"/g, '');
+            if (matches && matches.length >= 3) buttonLabel = matches[2].replace(/"/g, '');
+            if (matches && matches.length >= 4) buttonEmoji = matches[3].replace(/"/g, '');
+
+            const embed = new EmbedBuilder().setTitle(title).setDescription(description.replace(/\\n/g, '\n')).setColor('#2b2d31');
+            let button;
+            try {
+                button = new ButtonBuilder().setCustomId('create_ticket').setLabel(buttonLabel).setStyle(ButtonStyle.Primary).setEmoji(buttonEmoji);
+            } catch (e) {
+                // Fallback if emoji is invalid
+                button = new ButtonBuilder().setCustomId('create_ticket').setLabel(buttonLabel).setStyle(ButtonStyle.Primary).setEmoji('🎫');
+            }
             const row = new ActionRowBuilder().addComponents(button);
             await channel.send({ embeds: [embed], components: [row] });
             await message.reply('Panel sent.');
