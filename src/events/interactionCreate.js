@@ -1,4 +1,4 @@
-const { Events, ChannelType, PermissionFlagsBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const { Events, ChannelType, PermissionFlagsBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle } = require('discord.js');
 const supabase = require('../database/supabase');
 
 module.exports = {
@@ -21,9 +21,36 @@ module.exports = {
             }
         } else if (interaction.isButton()) {
             if (interaction.customId === 'create_ticket') {
-                await handleCreateTicket(interaction);
+                const modal = new ModalBuilder()
+                    .setCustomId('ticket_modal')
+                    .setTitle('Create a Ticket');
+
+                const subjectInput = new TextInputBuilder()
+                    .setCustomId('ticket_subject')
+                    .setLabel("Ticket Subject")
+                    .setStyle(TextInputStyle.Short)
+                    .setRequired(true)
+                    .setMaxLength(100);
+
+                const reasonInput = new TextInputBuilder()
+                    .setCustomId('ticket_reason')
+                    .setLabel("Reason for Ticket")
+                    .setStyle(TextInputStyle.Paragraph)
+                    .setRequired(true)
+                    .setMaxLength(1000);
+
+                const firstActionRow = new ActionRowBuilder().addComponents(subjectInput);
+                const secondActionRow = new ActionRowBuilder().addComponents(reasonInput);
+
+                modal.addComponents(firstActionRow, secondActionRow);
+
+                await interaction.showModal(modal);
             } else if (interaction.customId === 'close_ticket') {
                 await handleCloseTicket(interaction);
+            }
+        } else if (interaction.isModalSubmit()) {
+            if (interaction.customId === 'ticket_modal') {
+                await handleCreateTicket(interaction);
             }
         }
     },
@@ -48,6 +75,13 @@ async function handleCreateTicket(interaction) {
     }
 
     await interaction.deferReply({ ephemeral: true });
+
+    let subject = 'No Subject';
+    let reason = 'No Reason Provided';
+    if (interaction.isModalSubmit()) {
+        subject = interaction.fields.getTextInputValue('ticket_subject');
+        reason = interaction.fields.getTextInputValue('ticket_reason');
+    }
 
     const permissionOverwrites = [
         {
@@ -81,8 +115,8 @@ async function handleCreateTicket(interaction) {
     }]);
 
     const embed = new EmbedBuilder()
-        .setTitle('Ticket Created')
-        .setDescription(`Welcome ${interaction.user}! A staff member will be with you shortly.`)
+        .setTitle(`Ticket: ${subject}`)
+        .setDescription(`Welcome ${interaction.user}! A staff member will be with you shortly.\n\n**Reason:**\n${reason}`)
         .setColor('#2b2d31');
 
     const closeBtn = new ButtonBuilder()

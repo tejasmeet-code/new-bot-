@@ -56,11 +56,12 @@ module.exports = {
             const transcriptChannel = interaction.options.getChannel('transcript_channel');
             const staffRole = interaction.options.getRole('staff_role');
 
-            await supabase.from('guild_config').update({
+            await supabase.from('guild_config').upsert({
+                guild_id: guildId,
                 ticket_category_id: category.id,
                 ticket_transcript_channel_id: transcriptChannel.id,
                 ticket_staff_role_id: staffRole ? staffRole.id : null
-            }).eq('guild_id', guildId);
+            });
 
             const embed = new EmbedBuilder()
                 .setColor('#00ff00')
@@ -171,11 +172,12 @@ module.exports = {
             const staffRole = message.mentions.roles.first();
             if (!categoryId || !transcriptChannel) return message.reply('Usage: `$ticket setup <category_id> <#transcript_channel> [@staff_role]`');
 
-            await supabase.from('guild_config').update({
+            await supabase.from('guild_config').upsert({
+                guild_id: guildId,
                 ticket_category_id: categoryId,
                 ticket_transcript_channel_id: transcriptChannel.id,
                 ticket_staff_role_id: staffRole ? staffRole.id : null
-            }).eq('guild_id', guildId);
+            });
 
             const embed = new EmbedBuilder().setColor('#00ff00').setTitle('Ticket System Configured').setDescription(`**Category:** ${categoryId}\n**Transcripts:** ${transcriptChannel}\n**Staff Role:** ${staffRole ? staffRole : 'None'}`);
             await message.reply({ embeds: [embed] });
