@@ -15,8 +15,18 @@ module.exports = {
                 }
                 console.log(`Loaded ${client.noPrefixUsers.size} no-prefix users into cache.`);
             }
+
+            // Load AFK Users
+            const { data: afkUsers } = await supabase.from('afk_users').select('*');
+            client.afkUsers = new Map();
+            if (afkUsers) {
+                for (const user of afkUsers) {
+                    client.afkUsers.set(user.user_id, { reason: user.reason, timestamp: user.timestamp });
+                }
+                console.log(`Loaded ${client.afkUsers.size} AFK users into cache.`);
+            }
         } catch (e) {
-            console.error('Failed to load no-prefix users:', e);
+            console.error('Failed to load user config or AFK data:', e);
         }
     },
 };
