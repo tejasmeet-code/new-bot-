@@ -18,6 +18,12 @@ module.exports = {
             return interaction.reply({ content: 'I cannot ban this user! Do they have a higher role?', ephemeral: true });
         }
 
+        const dmEmbed = new EmbedBuilder()
+            .setColor('#ff0000')
+            .setTitle('<:ban:1517488765810114560> You have been Banned')
+            .setDescription(`You have been banned from **${interaction.guild.name}**.\n**Reason:** ${reason}`);
+        await user.send({ embeds: [dmEmbed] }).catch(() => null);
+
         await interaction.guild.members.ban(user.id, { reason });
 
         const embed = new EmbedBuilder()
@@ -39,6 +45,12 @@ module.exports = {
         const reason = args.slice(1).join(' ') || 'No reason provided';
         const member = await message.guild.members.fetch(target.id).catch(() => null);
         if (member && !member.bannable) return message.reply('I cannot ban this user! Do they have a higher role?');
+        const dmEmbed = new EmbedBuilder()
+            .setColor('#ff0000')
+            .setTitle('<:ban:1517488765810114560> You have been Banned')
+            .setDescription(`You have been banned from **${message.guild.name}**.\n**Reason:** ${reason}`);
+        await target.send({ embeds: [dmEmbed] }).catch(() => null);
+
         await message.guild.members.ban(target.id, { reason });
         const embed = new EmbedBuilder().setColor('#ff0000').setDescription(`**${target.tag}** has been banned. | ${reason}`);
         await message.reply({ embeds: [embed] });

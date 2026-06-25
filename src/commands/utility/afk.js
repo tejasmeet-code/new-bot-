@@ -35,8 +35,11 @@ async function setAfk(userId, reason, context) {
         try {
             const member = context.member || await context.guild.members.fetch(userId);
             if (member && member.manageable) {
-                const newNick = `[AFK]${member.displayName}`.slice(0, 32);
-                await member.setNickname(newNick);
+                let currentNick = member.displayName;
+                if (!currentNick.startsWith('[AFK]')) {
+                    const newNick = `[AFK] ${currentNick}`.slice(0, 32);
+                    await member.setNickname(newNick);
+                }
             }
         } catch (e) {
             console.error('Failed to change nickname:', e);

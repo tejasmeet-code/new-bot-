@@ -22,6 +22,12 @@ module.exports = {
             return interaction.reply({ content: 'I cannot kick this user! Do they have a higher role?', ephemeral: true });
         }
 
+        const dmEmbed = new EmbedBuilder()
+            .setColor('#ff9900')
+            .setTitle('You have been Kicked')
+            .setDescription(`You have been kicked from **${interaction.guild.name}**.\n**Reason:** ${reason}`);
+        await user.send({ embeds: [dmEmbed] }).catch(() => null);
+
         await member.kick(reason);
 
         const embed = new EmbedBuilder()
@@ -44,6 +50,12 @@ module.exports = {
         const member = await message.guild.members.fetch(target.id).catch(() => null);
         if (!member) return message.reply('That user is not in the server.');
         if (!member.kickable) return message.reply('I cannot kick this user! Do they have a higher role?');
+        const dmEmbed = new EmbedBuilder()
+            .setColor('#ff9900')
+            .setTitle('You have been Kicked')
+            .setDescription(`You have been kicked from **${message.guild.name}**.\n**Reason:** ${reason}`);
+        await target.send({ embeds: [dmEmbed] }).catch(() => null);
+
         await member.kick(reason);
         const embed = new EmbedBuilder().setColor('#ff9900').setDescription(`**${target.tag}** has been kicked. | ${reason}`);
         await message.reply({ embeds: [embed] });
