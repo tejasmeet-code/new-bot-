@@ -29,7 +29,7 @@ module.exports = {
             // Update client cache
             interaction.client.noPrefixUsers.add(user.id);
 
-            const embed = new EmbedBuilder().setColor('#00ff00').setDescription(`✅ ${user} can now use commands without a prefix.`);
+            const embed = new EmbedBuilder().setColor('#00ff00').setDescription(`<:tick:1517479233784643634> ${user} can now use commands without a prefix.`);
             await interaction.reply({ embeds: [embed] });
         } else if (subcommand === 'remove') {
             await supabase.from('user_config').delete().eq('user_id', user.id);
@@ -37,7 +37,7 @@ module.exports = {
             // Update client cache
             interaction.client.noPrefixUsers.delete(user.id);
 
-            const embed = new EmbedBuilder().setColor('#ff0000').setDescription(`✅ ${user} must now use the prefix.`);
+            const embed = new EmbedBuilder().setColor('#ff0000').setDescription(`<:tick:1517479233784643634> ${user} must now use the prefix.`);
             await interaction.reply({ embeds: [embed] });
         }
     },
@@ -52,12 +52,12 @@ module.exports = {
         if (subcommand === 'add') {
             await supabase.from('user_config').upsert({ user_id: user.id, no_prefix: true });
             message.client.noPrefixUsers.add(user.id);
-            const embed = new EmbedBuilder().setColor('#00ff00').setDescription(`✅ ${user} can now use commands without a prefix.`);
+            const embed = new EmbedBuilder().setColor('#00ff00').setDescription(`<:tick:1517479233784643634> ${user} can now use commands without a prefix.`);
             await message.reply({ embeds: [embed] });
         } else if (subcommand === 'remove') {
             await supabase.from('user_config').delete().eq('user_id', user.id);
             message.client.noPrefixUsers.delete(user.id);
-            const embed = new EmbedBuilder().setColor('#ff0000').setDescription(`✅ ${user} must now use the prefix.`);
+            const embed = new EmbedBuilder().setColor('#ff0000').setDescription(`<:tick:1517479233784643634> ${user} must now use the prefix.`);
             await message.reply({ embeds: [embed] });
         }
     }

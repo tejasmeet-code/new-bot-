@@ -75,7 +75,7 @@ module.exports = {
             const { data: allResponses } = await supabase.from('auto_responses').select('*').eq('guild_id', guildId);
             updateCache(interaction.client, guildId, allResponses || []);
 
-            const embed = new EmbedBuilder().setColor('#00ff00').setDescription(`✅ Auto-reaction added for ${displayTrigger} with ${emoji}.`);
+            const embed = new EmbedBuilder().setColor('#00ff00').setDescription(`<:tick:1517479233784643634> Auto-reaction added for ${displayTrigger} with ${emoji}.`);
             await interaction.reply({ embeds: [embed] });
         } else if (subcommand === 'remove') {
             const trigger = interaction.options.getString('trigger_or_id').toLowerCase();
@@ -94,7 +94,7 @@ module.exports = {
             const { data: allResponses } = await supabase.from('auto_responses').select('*').eq('guild_id', guildId);
             updateCache(interaction.client, guildId, allResponses || []);
 
-            const embed = new EmbedBuilder().setColor('#ff0000').setDescription(`✅ Removed auto-reaction for \`${trigger}\`.`);
+            const embed = new EmbedBuilder().setColor('#ff0000').setDescription(`<:tick:1517479233784643634> Removed auto-reaction for \`${trigger}\`.`);
             await interaction.reply({ embeds: [embed] });
         }
     },
@@ -148,7 +148,7 @@ module.exports = {
             const { data: allResponses } = await supabase.from('auto_responses').select('*').eq('guild_id', guildId);
             updateCache(message.client, guildId, allResponses || []);
 
-            const embed = new EmbedBuilder().setColor('#00ff00').setDescription(`✅ Auto-reaction added for ${displayTrigger} with ${emoji}.`);
+            const embed = new EmbedBuilder().setColor('#00ff00').setDescription(`<:tick:1517479233784643634> Auto-reaction added for ${displayTrigger} with ${emoji}.`);
             await message.reply({ embeds: [embed] });
         } else if (subcommand === 'remove') {
             const trigger = args[1]?.toLowerCase();
@@ -171,7 +171,7 @@ module.exports = {
             const { data: allResponses } = await supabase.from('auto_responses').select('*').eq('guild_id', guildId);
             updateCache(message.client, guildId, allResponses || []);
 
-            const embed = new EmbedBuilder().setColor('#ff0000').setDescription(`✅ Removed auto-reaction for \`${trigger}\`.`);
+            const embed = new EmbedBuilder().setColor('#ff0000').setDescription(`<:tick:1517479233784643634> Removed auto-reaction for \`${trigger}\`.`);
             await message.reply({ embeds: [embed] });
         }
     }

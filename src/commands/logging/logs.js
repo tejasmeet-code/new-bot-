@@ -71,7 +71,7 @@ module.exports = {
 
             const embed = new EmbedBuilder()
                 .setColor('#00ff00')
-                .setDescription(`✅ Logs will now be sent to ${channel}.`);
+                .setDescription(`<:tick:1517479233784643634> Logs will now be sent to ${channel}.`);
             await interaction.reply({ embeds: [embed] });
             
         } else if (subcommand === 'disable') {
@@ -88,7 +88,7 @@ module.exports = {
 
             const embed = new EmbedBuilder()
                 .setColor('#00ff00')
-                .setDescription(`✅ Disabled logging for **${category}**.`);
+                .setDescription(`<:tick:1517479233784643634> Disabled logging for **${category}**.`);
             await interaction.reply({ embeds: [embed] });
 
         } else if (subcommand === 'status') {
@@ -128,7 +128,7 @@ module.exports = {
             if (!channel) return message.reply('Please mention a channel.');
 
             await supabase.from('guild_config').update({ [category]: channel.id }).eq('guild_id', guildId);
-            const embed = new EmbedBuilder().setColor('#00ff00').setDescription(`✅ Logs will now be sent to ${channel}.`);
+            const embed = new EmbedBuilder().setColor('#00ff00').setDescription(`<:tick:1517479233784643634> Logs will now be sent to ${channel}.`);
             await message.reply({ embeds: [embed] });
         } else if (subcommand === 'disable') {
             const category = args[1]?.toLowerCase();
@@ -143,7 +143,7 @@ module.exports = {
             } else {
                 await supabase.from('guild_config').update({ [category]: null }).eq('guild_id', guildId);
             }
-            const embed = new EmbedBuilder().setColor('#00ff00').setDescription(`✅ Disabled logging for **${category}**.`);
+            const embed = new EmbedBuilder().setColor('#00ff00').setDescription(`<:tick:1517479233784643634> Disabled logging for **${category}**.`);
             await message.reply({ embeds: [embed] });
         } else if (subcommand === 'status') {
             const embed = new EmbedBuilder().setTitle('Logging Configuration').setColor('#2b2d31');

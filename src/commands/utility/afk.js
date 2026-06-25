@@ -44,7 +44,7 @@ async function setAfk(userId, reason, context) {
 
         const embed = new EmbedBuilder()
             .setColor('#ffff00')
-            .setDescription(`✅ You are now AFK: **${reason}**`);
+            .setDescription(`<:tick:1517479233784643634> You are now AFK: **${reason}**`);
             
         await context.reply({ embeds: [embed] });
     } catch (error) {
