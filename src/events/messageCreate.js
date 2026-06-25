@@ -89,7 +89,12 @@ module.exports = {
                             message.channel.send(ar.reply).catch(() => {});
                         }
                         if (ar.react) {
-                            message.react(ar.react).catch(() => {});
+                            let emojiToReact = ar.react;
+                            const customEmojiMatch = emojiToReact.match(/<a?:[a-zA-Z0-9_]+:(\d+)>/);
+                            if (customEmojiMatch) {
+                                emojiToReact = customEmojiMatch[1];
+                            }
+                            message.react(emojiToReact).catch((err) => { console.error('Reaction Error:', err); });
                         }
                     }
                 }

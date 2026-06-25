@@ -106,29 +106,36 @@ module.exports = {
         const guildId = message.guild.id;
 
         if (['user', 'channel', 'text'].includes(subcommand)) {
-            const target = args[1]?.toLowerCase();
-            if (!target) return message.reply('Please specify the target (user mention/ID, channel mention/ID, or trigger text).');
-            const emoji = args[2];
-            if (!emoji) return message.reply('Please specify an emoji.');
-
-            let trigger, matchType, displayTrigger;
+            let target, emoji, trigger, matchType, displayTrigger;
 
             if (subcommand === 'text') {
-                trigger = target;
-                matchType = args[3]?.toLowerCase() === 'includes' ? 'includes' : 'exact';
+                if (args.length < 3) return message.reply('Usage: `autoreact text <phrase> <emoji>`');
+                emoji = args[args.length - 1];
+                target = args.slice(1, -1).join(' ').toLowerCase();
+                
+                // Remove surrounding quotes if present
+                trigger = target.replace(/^["']|["']$/g, '');
+                matchType = 'exact';
                 displayTrigger = `\`${trigger}\``;
-            } else if (subcommand === 'user') {
-                const user = message.mentions.users.first() || message.client.users.cache.get(target);
-                if (!user) return message.reply('Invalid user specified.');
-                trigger = user.id;
-                matchType = 'user';
-                displayTrigger = `${user}`;
-            } else if (subcommand === 'channel') {
-                const channel = message.mentions.channels.first() || message.guild.channels.cache.get(target);
-                if (!channel) return message.reply('Invalid channel specified.');
-                trigger = channel.id;
-                matchType = 'channel';
-                displayTrigger = `${channel}`;
+            } else {
+                target = args[1]?.toLowerCase();
+                emoji = args[2];
+                if (!target) return message.reply('Please specify the target (user mention/ID or channel mention/ID).');
+                if (!emoji) return message.reply('Please specify an emoji.');
+
+                if (subcommand === 'user') {
+                    const user = message.mentions.users.first() || message.client.users.cache.get(target);
+                    if (!user) return message.reply('Invalid user specified.');
+                    trigger = user.id;
+                    matchType = 'user';
+                    displayTrigger = `${user}`;
+                } else if (subcommand === 'channel') {
+                    const channel = message.mentions.channels.first() || message.guild.channels.cache.get(target);
+                    if (!channel) return message.reply('Invalid channel specified.');
+                    trigger = channel.id;
+                    matchType = 'channel';
+                    displayTrigger = `${channel}`;
+                }
             }
 
             const { data: ar } = await supabase.from('auto_responses').select('*').eq('guild_id', guildId).eq('trigger', trigger).eq('match_type', matchType).single();
