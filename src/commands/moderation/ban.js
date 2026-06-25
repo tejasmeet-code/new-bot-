@@ -32,4 +32,20 @@ module.exports = {
             color: '#ff0000'
         });
     },
+    async executeText(message, args) {
+        if (!message.member.permissions.has(PermissionFlagsBits.BanMembers)) return message.reply('You do not have permission to use this command.');
+        const target = message.mentions.users.first() || message.client.users.cache.get(args[0]);
+        if (!target) return message.reply('Please mention a user or provide their ID to ban.');
+        const reason = args.slice(1).join(' ') || 'No reason provided';
+        const member = await message.guild.members.fetch(target.id).catch(() => null);
+        if (member && !member.bannable) return message.reply('I cannot ban this user! Do they have a higher role?');
+        await message.guild.members.ban(target.id, { reason });
+        const embed = new EmbedBuilder().setColor('#ff0000').setDescription(`**${target.tag}** has been banned. | ${reason}`);
+        await message.reply({ embeds: [embed] });
+        sendLog(message.guild, 'moderation', {
+            title: 'Member Banned',
+            description: `**User:** ${target} (${target.id})\n**Moderator:** ${message.author}\n**Reason:** ${reason}`,
+            color: '#ff0000'
+        });
+    }
 };

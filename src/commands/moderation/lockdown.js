@@ -36,4 +36,25 @@ module.exports = {
             color: '#ff0000'
         });
     },
+    async executeText(message, args) {
+        if (!message.member.permissions.has(PermissionFlagsBits.Administrator)) return message.reply('You do not have permission to use this command.');
+        const reply = await message.reply('Initiating server lockdown...');
+        const channels = message.guild.channels.cache.filter(c => c.isTextBased());
+        let count = 0;
+        for (const [id, channel] of channels) {
+            try {
+                await channel.permissionOverwrites.edit(message.guild.roles.everyone, { SendMessages: false });
+                count++;
+            } catch (e) {
+                // Ignore
+            }
+        }
+        const embed = new EmbedBuilder().setColor('#ff0000').setDescription(`🔒 Server lockdown initiated. Locked **${count}** channels.`);
+        await reply.edit({ content: null, embeds: [embed] });
+        sendLog(message.guild, 'moderation', {
+            title: 'Server Lockdown Initiated',
+            description: `**Moderator:** ${message.author}\n**Channels Affected:** ${count}`,
+            color: '#ff0000'
+        });
+    }
 };

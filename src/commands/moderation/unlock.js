@@ -27,4 +27,16 @@ module.exports = {
             color: '#00ff00'
         });
     },
+    async executeText(message, args) {
+        if (!message.member.permissions.has(PermissionFlagsBits.ManageChannels)) return message.reply('You do not have permission to use this command.');
+        const channel = message.mentions.channels.first() || message.channel;
+        await channel.permissionOverwrites.edit(message.guild.roles.everyone, { SendMessages: null });
+        const embed = new EmbedBuilder().setColor('#00ff00').setDescription(`🔓 ${channel} has been unlocked.`);
+        await message.reply({ embeds: [embed] });
+        sendLog(message.guild, 'moderation', {
+            title: 'Channel Unlocked',
+            description: `**Channel:** ${channel}\n**Moderator:** ${message.author}`,
+            color: '#00ff00'
+        });
+    }
 };

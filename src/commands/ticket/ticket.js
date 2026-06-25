@@ -143,4 +143,95 @@ module.exports = {
             }
         }
     },
+    async executeText(message, args) {
+        if (!message.member.permissions.has(PermissionFlagsBits.ManageChannels)) return message.reply('You do not have permission to use this command.');
+        const subcommand = args[0]?.toLowerCase();
+        const validCommands = ['setup', 'panel', 'close', 'delete', 'reopen', 'claim', 'unclaim', 'transcript', 'add', 'remove'];
+        if (!validCommands.includes(subcommand)) return message.reply(`Valid subcommands: ${validCommands.join(', ')}`);
+
+        const guildId = message.guild.id;
+        let { data: config } = await supabase.from('guild_config').select('*').eq('guild_id', guildId).single();
+        if (!config) {
+            await supabase.from('guild_config').insert([{ guild_id: guildId }]);
+            config = { guild_id: guildId };
+        }
+
+        if (subcommand === 'setup') {
+            const categoryId = args[1]; 
+            const transcriptChannel = message.mentions.channels.first();
+            const staffRole = message.mentions.roles.first();
+            if (!categoryId || !transcriptChannel) return message.reply('Usage: `$ticket setup <category_id> <#transcript_channel> [@staff_role]`');
+
+            await supabase.from('guild_config').update({
+                ticket_category_id: categoryId,
+                ticket_transcript_channel_id: transcriptChannel.id,
+                ticket_staff_role_id: staffRole ? staffRole.id : null
+            }).eq('guild_id', guildId);
+
+            const embed = new EmbedBuilder().setColor('#00ff00').setTitle('Ticket System Configured').setDescription(`**Category:** ${categoryId}\n**Transcripts:** ${transcriptChannel}\n**Staff Role:** ${staffRole ? staffRole : 'None'}`);
+            await message.reply({ embeds: [embed] });
+        } else if (subcommand === 'panel') {
+            const channel = message.mentions.channels.first() || message.channel;
+            if (!config.ticket_category_id) return message.reply('Please run setup first.');
+            const embed = new EmbedBuilder().setTitle('Support Tickets').setDescription('Click the button below to open a ticket.').setColor('#2b2d31');
+            const button = new ButtonBuilder().setCustomId('create_ticket').setLabel('Create Ticket').setStyle(ButtonStyle.Primary).setEmoji('🎫');
+            const row = new ActionRowBuilder().addComponents(button);
+            await channel.send({ embeds: [embed], components: [row] });
+            await message.reply('Panel sent.');
+        } else {
+            const { data: ticket } = await supabase.from('tickets').select('*').eq('channel_id', message.channel.id).single();
+            if (!ticket) return message.reply('This command can only be used inside a ticket channel.');
+
+            if (subcommand === 'close') {
+                await supabase.from('tickets').update({ status: 'closed' }).eq('channel_id', message.channel.id);
+                await message.channel.permissionOverwrites.edit(ticket.owner_id, { ViewChannel: false });
+                await message.reply({ embeds: [new EmbedBuilder().setColor('#ff0000').setDescription('Ticket closed.')] });
+            } else if (subcommand === 'reopen') {
+                await supabase.from('tickets').update({ status: 'open' }).eq('channel_id', message.channel.id);
+                await message.channel.permissionOverwrites.edit(ticket.owner_id, { ViewChannel: true });
+                await message.reply({ embeds: [new EmbedBuilder().setColor('#00ff00').setDescription('Ticket reopened.')] });
+            } else if (subcommand === 'delete') {
+                await supabase.from('tickets').delete().eq('channel_id', message.channel.id);
+                await message.reply('Deleting ticket in 5 seconds...');
+                setTimeout(() => message.channel.delete(), 5000);
+            } else if (subcommand === 'claim') {
+                await supabase.from('tickets').update({ claimed_by: message.author.id }).eq('channel_id', message.channel.id);
+                await message.reply({ embeds: [new EmbedBuilder().setColor('#ffff00').setDescription(`Ticket claimed by ${message.author}.`)] });
+            } else if (subcommand === 'unclaim') {
+                await supabase.from('tickets').update({ claimed_by: null }).eq('channel_id', message.channel.id);
+                await message.reply({ embeds: [new EmbedBuilder().setColor('#ffff00').setDescription('Ticket unclaimed.')] });
+            } else if (subcommand === 'add') {
+                const user = message.mentions.users.first();
+                if (!user) return message.reply('Please mention a user.');
+                await message.channel.permissionOverwrites.edit(user.id, { ViewChannel: true, SendMessages: true });
+                await message.reply({ embeds: [new EmbedBuilder().setColor('#00ff00').setDescription(`${user} added to the ticket.`)] });
+            } else if (subcommand === 'remove') {
+                const user = message.mentions.users.first();
+                if (!user) return message.reply('Please mention a user.');
+                await message.channel.permissionOverwrites.edit(user.id, { ViewChannel: false });
+                await message.reply({ embeds: [new EmbedBuilder().setColor('#ff0000').setDescription(`${user} removed from the ticket.`)] });
+            } else if (subcommand === 'transcript') {
+                const reply = await message.reply('Generating transcript...');
+                const discordTranscripts = require('discord-html-transcripts');
+                const attachment = await discordTranscripts.createTranscript(message.channel, {
+                    limit: -1, 
+                    returnType: 'attachment',
+                    filename: `transcript-${message.channel.name}.html`,
+                    saveImages: true,
+                    poweredBy: false
+                });
+
+                if (config.ticket_transcript_channel_id) {
+                    const tChannel = message.guild.channels.cache.get(config.ticket_transcript_channel_id);
+                    if (tChannel) {
+                        await tChannel.send({
+                            content: `Transcript for ticket \`${message.channel.name}\` (Owner: <@${ticket.owner_id}>)`,
+                            files: [attachment]
+                        });
+                    }
+                }
+                await reply.edit({ content: 'Transcript generated!', files: [attachment] });
+            }
+        }
+    }
 };

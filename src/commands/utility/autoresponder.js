@@ -53,4 +53,39 @@ module.exports = {
             await interaction.reply({ embeds: [embed] });
         }
     },
+    async executeText(message, args) {
+        if (!message.member.permissions.has(PermissionFlagsBits.ManageMessages)) return message.reply('You do not have permission to use this command.');
+        const subcommand = args[0]?.toLowerCase();
+        if (!['add', 'remove'].includes(subcommand)) return message.reply('Please specify a subcommand: `add` or `remove`.');
+
+        const trigger = args[1]?.toLowerCase();
+        if (!trigger) return message.reply('Please specify a trigger word.');
+        const guildId = message.guild.id;
+
+        if (subcommand === 'add') {
+            const reply = args.slice(2).join(' ');
+            if (!reply) return message.reply('Please specify a reply.');
+            const matchType = 'exact';
+
+            const { data: ar } = await supabase.from('auto_responses').select('*').eq('guild_id', guildId).eq('trigger', trigger).single();
+            if (!ar) {
+                await supabase.from('auto_responses').insert([{ guild_id: guildId, trigger, reply, match_type: matchType }]);
+            } else {
+                await supabase.from('auto_responses').update({ reply, match_type: matchType }).eq('id', ar.id);
+            }
+            const embed = new EmbedBuilder().setColor('#00ff00').setDescription(`✅ Auto-responder added for \`${trigger}\`.\nReply: ${reply}`);
+            await message.reply({ embeds: [embed] });
+        } else if (subcommand === 'remove') {
+            const { data: ar } = await supabase.from('auto_responses').select('*').eq('guild_id', guildId).eq('trigger', trigger).single();
+            if (ar) {
+                if (!ar.react) {
+                    await supabase.from('auto_responses').delete().eq('id', ar.id);
+                } else {
+                    await supabase.from('auto_responses').update({ reply: null }).eq('id', ar.id);
+                }
+            }
+            const embed = new EmbedBuilder().setColor('#ff0000').setDescription(`✅ Removed auto-responder for \`${trigger}\`.`);
+            await message.reply({ embeds: [embed] });
+        }
+    }
 };

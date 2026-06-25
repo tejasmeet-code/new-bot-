@@ -32,4 +32,22 @@ module.exports = {
             color: '#00ff00'
         });
     },
+    async executeText(message, args) {
+        if (!message.member.permissions.has(PermissionFlagsBits.ManageNicknames)) return message.reply('You do not have permission to use this command.');
+        const target = message.mentions.users.first() || message.client.users.cache.get(args[0]);
+        if (!target) return message.reply('Please mention a user or provide their ID.');
+        const nickname = args.slice(1).join(' ') || '';
+        const member = await message.guild.members.fetch(target.id).catch(() => null);
+        if (!member) return message.reply('That user is not in the server.');
+        if (!member.manageable) return message.reply('I cannot change this user\'s nickname!');
+        const oldNick = member.nickname || target.username;
+        await member.setNickname(nickname);
+        const embed = new EmbedBuilder().setColor('#00ff00').setDescription(`Successfully changed **${target.tag}**'s nickname to **${nickname || target.username}**.`);
+        await message.reply({ embeds: [embed] });
+        sendLog(message.guild, 'moderation', {
+            title: 'Nickname Changed',
+            description: `**User:** ${target}\n**Moderator:** ${message.author}\n**Old:** ${oldNick}\n**New:** ${nickname || target.username}`,
+            color: '#00ff00'
+        });
+    }
 };

@@ -108,4 +108,54 @@ module.exports = {
             await interaction.reply({ embeds: [embed] });
         }
     },
+    async executeText(message, args) {
+        if (!message.member.permissions.has(PermissionFlagsBits.Administrator)) return message.reply('You do not have permission to use this command.');
+        const subcommand = args[0]?.toLowerCase();
+        if (!['setup', 'disable', 'status'].includes(subcommand)) return message.reply('Please specify a subcommand: `setup`, `disable`, `status`.');
+        
+        const guildId = message.guild.id;
+        let { data: config } = await supabase.from('guild_config').select('*').eq('guild_id', guildId).single();
+        if (!config) {
+            await supabase.from('guild_config').insert([{ guild_id: guildId }]);
+            config = { guild_id: guildId };
+        }
+
+        if (subcommand === 'setup') {
+            const category = args[1]?.toLowerCase();
+            const validCategories = ['log_moderation', 'log_messages', 'log_members', 'log_roles', 'log_channels', 'log_voice', 'log_automod'];
+            if (!validCategories.includes(category)) return message.reply('Invalid category. Valid categories: ' + validCategories.join(', '));
+            const channel = message.mentions.channels.first();
+            if (!channel) return message.reply('Please mention a channel.');
+
+            await supabase.from('guild_config').update({ [category]: channel.id }).eq('guild_id', guildId);
+            const embed = new EmbedBuilder().setColor('#00ff00').setDescription(`✅ Logs will now be sent to ${channel}.`);
+            await message.reply({ embeds: [embed] });
+        } else if (subcommand === 'disable') {
+            const category = args[1]?.toLowerCase();
+            const validCategories = ['log_moderation', 'log_messages', 'log_members', 'log_roles', 'log_channels', 'log_voice', 'log_automod', 'all'];
+            if (!validCategories.includes(category)) return message.reply('Invalid category. Valid categories: ' + validCategories.join(', '));
+            
+            if (category === 'all') {
+                await supabase.from('guild_config').update({
+                    log_moderation: null, log_messages: null, log_members: null, 
+                    log_roles: null, log_channels: null, log_voice: null, log_automod: null
+                }).eq('guild_id', guildId);
+            } else {
+                await supabase.from('guild_config').update({ [category]: null }).eq('guild_id', guildId);
+            }
+            const embed = new EmbedBuilder().setColor('#00ff00').setDescription(`✅ Disabled logging for **${category}**.`);
+            await message.reply({ embeds: [embed] });
+        } else if (subcommand === 'status') {
+            const embed = new EmbedBuilder().setTitle('Logging Configuration').setColor('#2b2d31');
+            const categories = ['log_moderation', 'log_messages', 'log_members', 'log_roles', 'log_channels', 'log_voice', 'log_automod'];
+            let desc = '';
+            categories.forEach(cat => {
+                const channelId = config[cat];
+                const cleanName = cat.replace('log_', '').charAt(0).toUpperCase() + cat.replace('log_', '').slice(1);
+                desc += `**${cleanName}:** ${channelId ? `<#${channelId}>` : 'Disabled'}\n`;
+            });
+            embed.setDescription(desc || 'No logging configured.');
+            await message.reply({ embeds: [embed] });
+        }
+    }
 };

@@ -26,4 +26,18 @@ module.exports = {
             color: '#ff9900'
         });
     },
+    async executeText(message, args) {
+        if (!message.member.permissions.has(PermissionFlagsBits.ManageMessages)) return message.reply('You do not have permission to use this command.');
+        const amount = parseInt(args[0], 10);
+        if (isNaN(amount) || amount < 1 || amount > 100) return message.reply('Please provide a valid number between 1 and 100.');
+        await message.channel.bulkDelete(amount + 1, true).catch(() => {});
+        const embed = new EmbedBuilder().setColor('#00ff00').setDescription(`Successfully deleted **${amount}** messages.`);
+        const reply = await message.channel.send({ embeds: [embed] });
+        setTimeout(() => reply.delete().catch(() => {}), 5000);
+        sendLog(message.guild, 'moderation', {
+            title: 'Messages Purged',
+            description: `**Channel:** ${message.channel}\n**Moderator:** ${message.author}\n**Amount:** ${amount}`,
+            color: '#ff9900'
+        });
+    }
 };

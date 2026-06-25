@@ -55,5 +55,17 @@ module.exports = {
             return message.reply('Pong!');
         }
 
+        const command = client.commands.get(commandName);
+        if (!command) return;
+
+        // Check if the command supports text execution
+        if (typeof command.executeText === 'function') {
+            try {
+                await command.executeText(message, args);
+            } catch (error) {
+                console.error(`Error executing ${commandName} via text:`, error);
+                message.reply('There was an error trying to execute that command.').catch(() => {});
+            }
+        }
     },
 };
