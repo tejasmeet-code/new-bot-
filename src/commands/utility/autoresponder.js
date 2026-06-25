@@ -1,6 +1,11 @@
 const { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder } = require('discord.js');
 const supabase = require('../../database/supabase');
 
+function updateCache(client, guildId, newResponses) {
+    if (!client.autoResponses) client.autoResponses = new Map();
+    client.autoResponses.set(guildId, newResponses);
+}
+
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('autoresponder')
@@ -30,7 +35,7 @@ module.exports = {
             const reply = interaction.options.getString('reply');
             const matchType = interaction.options.getString('match_type') || 'exact';
 
-            const { data: ar } = await supabase.from('auto_responses').select('*').eq('guild_id', guildId).eq('trigger', trigger).single();
+            const { data: ar } = await supabase.from('auto_responses').select('*').eq('guild_id', guildId).eq('trigger', trigger).eq('match_type', matchType).single();
             
             if (!ar) {
                 await supabase.from('auto_responses').insert([{ guild_id: guildId, trigger, reply, match_type: matchType }]);
@@ -38,17 +43,26 @@ module.exports = {
                 await supabase.from('auto_responses').update({ reply, match_type: matchType }).eq('id', ar.id);
             }
 
+            const { data: allResponses } = await supabase.from('auto_responses').select('*').eq('guild_id', guildId);
+            updateCache(interaction.client, guildId, allResponses || []);
+
             const embed = new EmbedBuilder().setColor('#00ff00').setDescription(`✅ Auto-responder added for \`${trigger}\`.\nReply: ${reply}`);
             await interaction.reply({ embeds: [embed] });
         } else if (subcommand === 'remove') {
-            const { data: ar } = await supabase.from('auto_responses').select('*').eq('guild_id', guildId).eq('trigger', trigger).single();
-            if (ar) {
-                if (!ar.react) {
-                    await supabase.from('auto_responses').delete().eq('id', ar.id);
-                } else {
-                    await supabase.from('auto_responses').update({ reply: null }).eq('id', ar.id);
+            const { data: arList } = await supabase.from('auto_responses').select('*').eq('guild_id', guildId).eq('trigger', trigger);
+            if (arList && arList.length > 0) {
+                for (const ar of arList) {
+                    if (!ar.react) {
+                        await supabase.from('auto_responses').delete().eq('id', ar.id);
+                    } else {
+                        await supabase.from('auto_responses').update({ reply: null }).eq('id', ar.id);
+                    }
                 }
             }
+
+            const { data: allResponses } = await supabase.from('auto_responses').select('*').eq('guild_id', guildId);
+            updateCache(interaction.client, guildId, allResponses || []);
+
             const embed = new EmbedBuilder().setColor('#ff0000').setDescription(`✅ Removed auto-responder for \`${trigger}\`.`);
             await interaction.reply({ embeds: [embed] });
         }
@@ -67,23 +81,33 @@ module.exports = {
             if (!reply) return message.reply('Please specify a reply.');
             const matchType = 'exact';
 
-            const { data: ar } = await supabase.from('auto_responses').select('*').eq('guild_id', guildId).eq('trigger', trigger).single();
+            const { data: ar } = await supabase.from('auto_responses').select('*').eq('guild_id', guildId).eq('trigger', trigger).eq('match_type', matchType).single();
             if (!ar) {
                 await supabase.from('auto_responses').insert([{ guild_id: guildId, trigger, reply, match_type: matchType }]);
             } else {
                 await supabase.from('auto_responses').update({ reply, match_type: matchType }).eq('id', ar.id);
             }
+
+            const { data: allResponses } = await supabase.from('auto_responses').select('*').eq('guild_id', guildId);
+            updateCache(message.client, guildId, allResponses || []);
+
             const embed = new EmbedBuilder().setColor('#00ff00').setDescription(`✅ Auto-responder added for \`${trigger}\`.\nReply: ${reply}`);
             await message.reply({ embeds: [embed] });
         } else if (subcommand === 'remove') {
-            const { data: ar } = await supabase.from('auto_responses').select('*').eq('guild_id', guildId).eq('trigger', trigger).single();
-            if (ar) {
-                if (!ar.react) {
-                    await supabase.from('auto_responses').delete().eq('id', ar.id);
-                } else {
-                    await supabase.from('auto_responses').update({ reply: null }).eq('id', ar.id);
+            const { data: arList } = await supabase.from('auto_responses').select('*').eq('guild_id', guildId).eq('trigger', trigger);
+            if (arList && arList.length > 0) {
+                for (const ar of arList) {
+                    if (!ar.react) {
+                        await supabase.from('auto_responses').delete().eq('id', ar.id);
+                    } else {
+                        await supabase.from('auto_responses').update({ reply: null }).eq('id', ar.id);
+                    }
                 }
             }
+
+            const { data: allResponses } = await supabase.from('auto_responses').select('*').eq('guild_id', guildId);
+            updateCache(message.client, guildId, allResponses || []);
+
             const embed = new EmbedBuilder().setColor('#ff0000').setDescription(`✅ Removed auto-responder for \`${trigger}\`.`);
             await message.reply({ embeds: [embed] });
         }

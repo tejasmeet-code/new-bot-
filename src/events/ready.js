@@ -28,5 +28,21 @@ module.exports = {
         } catch (e) {
             console.error('Failed to load user config or AFK data:', e);
         }
+
+        try {
+            const { data: responses } = await supabase.from('auto_responses').select('*');
+            client.autoResponses = new Map();
+            if (responses) {
+                for (const ar of responses) {
+                    if (!client.autoResponses.has(ar.guild_id)) {
+                        client.autoResponses.set(ar.guild_id, []);
+                    }
+                    client.autoResponses.get(ar.guild_id).push(ar);
+                }
+                console.log(`Loaded ${responses.length} auto-responses into cache.`);
+            }
+        } catch (e) {
+            console.error('Failed to load auto-responses:', e);
+        }
     },
 };

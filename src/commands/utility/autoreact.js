@@ -1,6 +1,11 @@
 const { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder } = require('discord.js');
 const supabase = require('../../database/supabase');
 
+function updateCache(client, guildId, newResponses) {
+    if (!client.autoResponses) client.autoResponses = new Map();
+    client.autoResponses.set(guildId, newResponses);
+}
+
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('autoreact')
@@ -9,46 +14,86 @@ module.exports = {
         .setDMPermission(false)
         .addSubcommand(subcommand =>
             subcommand
-                .setName('add')
-                .setDescription('Add an auto-reaction')
-                .addStringOption(option => option.setName('trigger').setDescription('The word or phrase to trigger on').setRequired(true))
-                .addStringOption(option => option.setName('emoji').setDescription('The emoji to react with').setRequired(true))
-                .addStringOption(option => option.setName('match_type').setDescription('Exact match or includes?').setRequired(false).addChoices({ name: 'Exact', value: 'exact' }, { name: 'Includes', value: 'includes' }))
+                .setName('add_text')
+                .setDescription('React to a word/phrase')
+                .addStringOption(option => option.setName('trigger').setDescription('The word or phrase').setRequired(true))
+                .addStringOption(option => option.setName('emoji').setDescription('The emoji').setRequired(true))
+                .addStringOption(option => option.setName('match_type').setDescription('Exact or includes?').setRequired(false).addChoices({ name: 'Exact', value: 'exact' }, { name: 'Includes', value: 'includes' }))
+        )
+        .addSubcommand(subcommand =>
+            subcommand
+                .setName('add_user')
+                .setDescription('React to a user')
+                .addUserOption(option => option.setName('user').setDescription('The user').setRequired(true))
+                .addStringOption(option => option.setName('emoji').setDescription('The emoji').setRequired(true))
+        )
+        .addSubcommand(subcommand =>
+            subcommand
+                .setName('add_channel')
+                .setDescription('React to a channel')
+                .addChannelOption(option => option.setName('channel').setDescription('The channel').setRequired(true))
+                .addStringOption(option => option.setName('emoji').setDescription('The emoji').setRequired(true))
         )
         .addSubcommand(subcommand =>
             subcommand
                 .setName('remove')
                 .setDescription('Remove an auto-reaction')
-                .addStringOption(option => option.setName('trigger').setDescription('The trigger word to remove').setRequired(true))
+                .addStringOption(option => option.setName('trigger_or_id').setDescription('The trigger word, user ID, or channel ID').setRequired(true))
         ),
     async execute(interaction) {
         const subcommand = interaction.options.getSubcommand();
-        const trigger = interaction.options.getString('trigger').toLowerCase();
         const guildId = interaction.guild.id;
 
-        if (subcommand === 'add') {
+        if (subcommand.startsWith('add_')) {
+            let trigger, matchType, displayTrigger;
             const emoji = interaction.options.getString('emoji');
-            const matchType = interaction.options.getString('match_type') || 'exact';
 
-            const { data: ar } = await supabase.from('auto_responses').select('*').eq('guild_id', guildId).eq('trigger', trigger).single();
+            if (subcommand === 'add_text') {
+                trigger = interaction.options.getString('trigger').toLowerCase();
+                matchType = interaction.options.getString('match_type') || 'exact';
+                displayTrigger = `\`${trigger}\``;
+            } else if (subcommand === 'add_user') {
+                const user = interaction.options.getUser('user');
+                trigger = user.id;
+                matchType = 'user';
+                displayTrigger = `${user}`;
+            } else if (subcommand === 'add_channel') {
+                const channel = interaction.options.getChannel('channel');
+                trigger = channel.id;
+                matchType = 'channel';
+                displayTrigger = `${channel}`;
+            }
+
+            const { data: ar } = await supabase.from('auto_responses').select('*').eq('guild_id', guildId).eq('trigger', trigger).eq('match_type', matchType).single();
             
             if (!ar) {
                 await supabase.from('auto_responses').insert([{ guild_id: guildId, trigger, react: emoji, match_type: matchType }]);
             } else {
-                await supabase.from('auto_responses').update({ react: emoji, match_type: matchType }).eq('id', ar.id);
+                await supabase.from('auto_responses').update({ react: emoji }).eq('id', ar.id);
             }
 
-            const embed = new EmbedBuilder().setColor('#00ff00').setDescription(`✅ Auto-reaction added for \`${trigger}\` with ${emoji}.`);
+            const { data: allResponses } = await supabase.from('auto_responses').select('*').eq('guild_id', guildId);
+            updateCache(interaction.client, guildId, allResponses || []);
+
+            const embed = new EmbedBuilder().setColor('#00ff00').setDescription(`✅ Auto-reaction added for ${displayTrigger} with ${emoji}.`);
             await interaction.reply({ embeds: [embed] });
         } else if (subcommand === 'remove') {
-            const { data: ar } = await supabase.from('auto_responses').select('*').eq('guild_id', guildId).eq('trigger', trigger).single();
-            if (ar) {
-                if (!ar.reply) {
-                    await supabase.from('auto_responses').delete().eq('id', ar.id);
-                } else {
-                    await supabase.from('auto_responses').update({ react: null }).eq('id', ar.id);
+            const trigger = interaction.options.getString('trigger_or_id').toLowerCase();
+            const { data: arList } = await supabase.from('auto_responses').select('*').eq('guild_id', guildId).eq('trigger', trigger);
+            
+            if (arList && arList.length > 0) {
+                for (const ar of arList) {
+                    if (!ar.reply) {
+                        await supabase.from('auto_responses').delete().eq('id', ar.id);
+                    } else {
+                        await supabase.from('auto_responses').update({ react: null }).eq('id', ar.id);
+                    }
                 }
             }
+
+            const { data: allResponses } = await supabase.from('auto_responses').select('*').eq('guild_id', guildId);
+            updateCache(interaction.client, guildId, allResponses || []);
+
             const embed = new EmbedBuilder().setColor('#ff0000').setDescription(`✅ Removed auto-reaction for \`${trigger}\`.`);
             await interaction.reply({ embeds: [embed] });
         }
@@ -56,34 +101,69 @@ module.exports = {
     async executeText(message, args) {
         if (!message.member.permissions.has(PermissionFlagsBits.ManageMessages)) return message.reply('You do not have permission to use this command.');
         const subcommand = args[0]?.toLowerCase();
-        if (!['add', 'remove'].includes(subcommand)) return message.reply('Please specify a subcommand: `add` or `remove`.');
+        if (!['user', 'channel', 'text', 'remove'].includes(subcommand)) return message.reply('Please specify a subcommand: `user`, `channel`, `text`, or `remove`.');
 
-        const trigger = args[1]?.toLowerCase();
-        if (!trigger) return message.reply('Please specify a trigger word.');
         const guildId = message.guild.id;
 
-        if (subcommand === 'add') {
+        if (['user', 'channel', 'text'].includes(subcommand)) {
+            const target = args[1]?.toLowerCase();
+            if (!target) return message.reply('Please specify the target (user mention/ID, channel mention/ID, or trigger text).');
             const emoji = args[2];
             if (!emoji) return message.reply('Please specify an emoji.');
-            const matchType = args[3]?.toLowerCase() === 'includes' ? 'includes' : 'exact';
 
-            const { data: ar } = await supabase.from('auto_responses').select('*').eq('guild_id', guildId).eq('trigger', trigger).single();
+            let trigger, matchType, displayTrigger;
+
+            if (subcommand === 'text') {
+                trigger = target;
+                matchType = args[3]?.toLowerCase() === 'includes' ? 'includes' : 'exact';
+                displayTrigger = `\`${trigger}\``;
+            } else if (subcommand === 'user') {
+                const user = message.mentions.users.first() || message.client.users.cache.get(target);
+                if (!user) return message.reply('Invalid user specified.');
+                trigger = user.id;
+                matchType = 'user';
+                displayTrigger = `${user}`;
+            } else if (subcommand === 'channel') {
+                const channel = message.mentions.channels.first() || message.guild.channels.cache.get(target);
+                if (!channel) return message.reply('Invalid channel specified.');
+                trigger = channel.id;
+                matchType = 'channel';
+                displayTrigger = `${channel}`;
+            }
+
+            const { data: ar } = await supabase.from('auto_responses').select('*').eq('guild_id', guildId).eq('trigger', trigger).eq('match_type', matchType).single();
             if (!ar) {
                 await supabase.from('auto_responses').insert([{ guild_id: guildId, trigger, react: emoji, match_type: matchType }]);
             } else {
-                await supabase.from('auto_responses').update({ react: emoji, match_type: matchType }).eq('id', ar.id);
+                await supabase.from('auto_responses').update({ react: emoji }).eq('id', ar.id);
             }
-            const embed = new EmbedBuilder().setColor('#00ff00').setDescription(`✅ Auto-reaction added for \`${trigger}\` with ${emoji}.`);
+
+            const { data: allResponses } = await supabase.from('auto_responses').select('*').eq('guild_id', guildId);
+            updateCache(message.client, guildId, allResponses || []);
+
+            const embed = new EmbedBuilder().setColor('#00ff00').setDescription(`✅ Auto-reaction added for ${displayTrigger} with ${emoji}.`);
             await message.reply({ embeds: [embed] });
         } else if (subcommand === 'remove') {
-            const { data: ar } = await supabase.from('auto_responses').select('*').eq('guild_id', guildId).eq('trigger', trigger).single();
-            if (ar) {
-                if (!ar.reply) {
-                    await supabase.from('auto_responses').delete().eq('id', ar.id);
-                } else {
-                    await supabase.from('auto_responses').update({ react: null }).eq('id', ar.id);
+            const trigger = args[1]?.toLowerCase();
+            if (!trigger) return message.reply('Please specify the trigger or ID to remove.');
+
+            const cleanTrigger = trigger.replace(/[<@#!>]/g, '');
+
+            const { data: arList } = await supabase.from('auto_responses').select('*').eq('guild_id', guildId).or(`trigger.eq.${trigger},trigger.eq.${cleanTrigger}`);
+            
+            if (arList && arList.length > 0) {
+                for (const ar of arList) {
+                    if (!ar.reply) {
+                        await supabase.from('auto_responses').delete().eq('id', ar.id);
+                    } else {
+                        await supabase.from('auto_responses').update({ react: null }).eq('id', ar.id);
+                    }
                 }
             }
+
+            const { data: allResponses } = await supabase.from('auto_responses').select('*').eq('guild_id', guildId);
+            updateCache(message.client, guildId, allResponses || []);
+
             const embed = new EmbedBuilder().setColor('#ff0000').setDescription(`✅ Removed auto-reaction for \`${trigger}\`.`);
             await message.reply({ embeds: [embed] });
         }

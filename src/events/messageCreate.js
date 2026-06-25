@@ -65,14 +65,16 @@ module.exports = {
             }
         }
 
-        // 2. Auto-Responder & Auto-React
+        // 3. Auto-Responder & Auto-React
         try {
-            const { data: responses } = await supabase.from('auto_responses').select('*').eq('guild_id', guildId);
-            if (responses) {
+            const responses = client.autoResponses?.get(guildId) || [];
+            if (responses.length > 0) {
                 for (const ar of responses) {
                     let isMatch = false;
                     if (ar.match_type === 'exact' && content === ar.trigger) isMatch = true;
                     if (ar.match_type === 'includes' && content.includes(ar.trigger)) isMatch = true;
+                    if (ar.match_type === 'user' && message.author.id === ar.trigger) isMatch = true;
+                    if (ar.match_type === 'channel' && message.channel.id === ar.trigger) isMatch = true;
 
                     if (isMatch) {
                         if (ar.reply) {
