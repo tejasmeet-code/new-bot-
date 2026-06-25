@@ -1,4 +1,4 @@
-const { Events } = require('discord.js');
+const { Events, PermissionFlagsBits } = require('discord.js');
 const supabase = require('../database/supabase');
 
 module.exports = {
@@ -37,16 +37,24 @@ module.exports = {
             });
         }
 
-        // 2. Prefix-less Commands
+        // 2. Prefix & No-Prefix Commands
         const defaultPrefix = '$';
-        let messageContent = message.content.trim();
-        if (messageContent.startsWith(defaultPrefix)) {
-            messageContent = messageContent.slice(defaultPrefix.length).trim();
-        }
+        const isNoPrefixUser = client.noPrefixUsers && client.noPrefixUsers.has(message.author.id);
+        const isAdmin = message.member && message.member.permissions.has(PermissionFlagsBits.Administrator);
+        const canUseNoPrefix = isNoPrefixUser || isAdmin;
+        
+        let commandName = null;
+        let args = [];
 
-        const argsArray = messageContent.split(/ +/);
-        const commandName = argsArray.shift().toLowerCase();
-        const args = argsArray;
+        if (message.content.startsWith(defaultPrefix)) {
+            const argsArray = message.content.slice(defaultPrefix.length).trim().split(/ +/);
+            commandName = argsArray.shift().toLowerCase();
+            args = argsArray;
+        } else if (canUseNoPrefix) {
+            const argsArray = message.content.trim().split(/ +/);
+            commandName = argsArray.shift().toLowerCase();
+            args = argsArray;
+        }
 
         if (commandName) {
             if (commandName === 'ping') {
