@@ -1,5 +1,5 @@
 const { Events } = require('discord.js');
-const supabase = require('../../database/supabase');
+const supabase = require('../database/supabase');
 
 module.exports = {
     name: Events.MessageCreate,

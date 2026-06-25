@@ -1,4 +1,4 @@
-const supabase = require('../../database/supabase');
+const supabase = require('../database/supabase');
 const { EmbedBuilder } = require('discord.js');
 
 async function sendLog(guild, type, embedOptions) {
