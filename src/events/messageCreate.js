@@ -132,13 +132,19 @@ async function handleDMApplication(message, client) {
 
         try {
             const { data: config } = await supabase.from('guild_config').select('*').eq('guild_id', session.guildId).single();
-            if (!config || !config.staff_app_channel_id) return;
+            if (!config || !config.staff_app_channel_id) {
+                return message.author.send('<:failure:1517469374594945134> We could not submit your application because the server has not set up an approval channel. Please contact a server admin.');
+            }
 
             const guild = client.guilds.cache.get(session.guildId) || await client.guilds.fetch(session.guildId).catch(() => null);
-            if (!guild) return;
+            if (!guild) {
+                return message.author.send('<:failure:1517469374594945134> We could not submit your application because the server could not be found.');
+            }
 
             const approvalChannel = guild.channels.cache.get(config.staff_app_channel_id) || await guild.channels.fetch(config.staff_app_channel_id).catch(() => null);
-            if (!approvalChannel) return;
+            if (!approvalChannel) {
+                return message.author.send('<:failure:1517469374594945134> We could not submit your application because the server\'s approval channel no longer exists.');
+            }
 
             const embed = new EmbedBuilder()
                 .setTitle(`Staff Application - ${message.author.tag}`)

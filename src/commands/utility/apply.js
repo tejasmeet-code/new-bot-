@@ -67,10 +67,21 @@ module.exports = {
 
         // Save approval channel to db
         const { data: existingConfig } = await supabase.from('guild_config').select('*').eq('guild_id', guildId).single();
+        let dbError;
         if (existingConfig) {
-            await supabase.from('guild_config').update({ staff_app_channel_id: approvalChannel.id }).eq('guild_id', guildId);
+            const { error } = await supabase.from('guild_config').update({ staff_app_channel_id: approvalChannel.id }).eq('guild_id', guildId);
+            dbError = error;
         } else {
-            await supabase.from('guild_config').insert([{ guild_id: guildId, staff_app_channel_id: approvalChannel.id }]);
+            const { error } = await supabase.from('guild_config').insert([{ guild_id: guildId, staff_app_channel_id: approvalChannel.id }]);
+            dbError = error;
+        }
+
+        if (dbError) {
+            console.error('Database Error:', dbError);
+            if (context.reply) {
+                return context.reply({ content: `Database error: Could not save the channel. Did you run the SQL command \`ALTER TABLE guild_config ADD COLUMN staff_app_channel_id TEXT;\` in Supabase?`, ephemeral: true });
+            }
+            return;
         }
 
         // Send panel to panelChannel
