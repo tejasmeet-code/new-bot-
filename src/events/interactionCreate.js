@@ -161,7 +161,7 @@ async function handleStartApplication(interaction, client) {
     if (!client.appSessions) client.appSessions = new Map();
 
     if (client.appSessions.has(interaction.user.id)) {
-        return interaction.reply({ content: 'You already have an active application process in your DMs!', ephemeral: true });
+        return interaction.reply({ content: '<:failure:1517469374594945134> You already have an active application process in your DMs!', ephemeral: true });
     }
 
     await interaction.deferReply({ ephemeral: true });
@@ -176,10 +176,10 @@ async function handleStartApplication(interaction, client) {
             answers: []
         });
 
-        await interaction.editReply({ content: 'I have sent you a DM to begin your application process!' });
+        await interaction.editReply({ content: '<:dm_sent:1517480357090295898> I have sent you a DM to begin your application process!' });
     } catch (e) {
         console.error(e);
-        await interaction.editReply({ content: 'I could not send you a DM. Please ensure your DMs are open and try again.' });
+        await interaction.editReply({ content: '<:failed:1517478180661891072> I could not send you a DM. Please ensure your DMs are open and try again.' });
     }
 }
 

@@ -124,10 +124,9 @@ async function handleDMApplication(message, client) {
         // Ask next question
         await message.author.send(`**Question ${session.step + 1}:**\n${applicationQuestions[session.step]}`);
     } else {
-        // Finish application
         const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
         
-        await message.author.send('Thank you for your application! Our staff team will review it shortly. Good luck! 🚀');
+        await message.author.send('<:tick:1517479233784643634> Thank you for your application! Our staff team will review it shortly. Good luck! 🚀');
         
         client.appSessions.delete(message.author.id);
 

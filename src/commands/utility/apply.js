@@ -84,14 +84,14 @@ module.exports = {
                 new ButtonBuilder()
                     .setCustomId('start_application')
                     .setLabel('Start Application')
-                    .setEmoji('📝')
+                    .setEmoji('1517488639888719882')
                     .setStyle(ButtonStyle.Primary)
             );
 
         await panelChannel.send({ embeds: [embed], components: [row] });
 
         if (context.reply) {
-            await context.reply({ content: `✅ Application panel sent to ${panelChannel} and approval channel set to ${approvalChannel}.`, ephemeral: true });
+            await context.reply({ content: `<:tick:1517479233784643634> Application panel sent to ${panelChannel} and approval channel set to ${approvalChannel}.`, ephemeral: true });
         }
     }
 };
