@@ -47,6 +47,10 @@ module.exports = {
                 await interaction.showModal(modal);
             } else if (interaction.customId === 'close_ticket') {
                 await handleCloseTicket(interaction);
+            } else if (interaction.customId === 'start_application') {
+                await handleStartApplication(interaction, client);
+            } else if (interaction.customId.startsWith('approve_app_') || interaction.customId.startsWith('reject_app_')) {
+                await handleApproveRejectApp(interaction, client);
             }
         } else if (interaction.isModalSubmit()) {
             if (interaction.customId === 'ticket_modal') {
@@ -151,3 +155,62 @@ async function handleCloseTicket(interaction) {
 
     await interaction.editReply({ embeds: [embed] });
 }
+const applicationQuestions = require('../utils/applicationQuestions');
+
+async function handleStartApplication(interaction, client) {
+    if (!client.appSessions) client.appSessions = new Map();
+
+    if (client.appSessions.has(interaction.user.id)) {
+        return interaction.reply({ content: 'You already have an active application process in your DMs!', ephemeral: true });
+    }
+
+    await interaction.deferReply({ ephemeral: true });
+
+    try {
+        const dmChannel = await interaction.user.createDM();
+        await dmChannel.send(`__**NOTE**__ = USAGE OF AI WILL LEAD TO BAN.\n\nLet's begin your staff application. Please answer the following questions one by one.\n\n**Question 1:**\n${applicationQuestions[0]}`);
+        
+        client.appSessions.set(interaction.user.id, {
+            guildId: interaction.guild.id,
+            step: 0,
+            answers: []
+        });
+
+        await interaction.editReply({ content: 'I have sent you a DM to begin your application process!' });
+    } catch (e) {
+        console.error(e);
+        await interaction.editReply({ content: 'I could not send you a DM. Please ensure your DMs are open and try again.' });
+    }
+}
+
+async function handleApproveRejectApp(interaction, client) {
+    if (!interaction.member.permissions.has(PermissionFlagsBits.Administrator)) {
+        return interaction.reply({ content: 'Only Administrators can approve or reject applications.', ephemeral: true });
+    }
+
+    const isApprove = interaction.customId.startsWith('approve_app_');
+    const targetUserId = interaction.customId.replace('approve_app_', '').replace('reject_app_', '');
+
+    const oldEmbed = interaction.message.embeds[0];
+    const newEmbed = EmbedBuilder.from(oldEmbed);
+
+    newEmbed.setColor(isApprove ? '#00ff00' : '#ff0000');
+    newEmbed.setTitle(`${oldEmbed.title} - ${isApprove ? 'APPROVED' : 'REJECTED'}`);
+    newEmbed.setFooter({ text: `Reviewed by ${interaction.user.tag}` });
+
+    await interaction.update({ embeds: [newEmbed], components: [] });
+
+    try {
+        const user = await client.users.fetch(targetUserId);
+        if (user) {
+            const statusMsg = isApprove 
+                ? `Congratulations! Your staff application for **${interaction.guild.name}** has been **APPROVED**.`
+                : `We regret to inform you that your staff application for **${interaction.guild.name}** has been **REJECTED**.`;
+            await user.send(statusMsg).catch(() => {});
+        }
+    } catch (e) {
+        console.error('Failed to DM user application status:', e);
+    }
+}
+
+// Add these to module.exports if necessary, or just append them to the file.

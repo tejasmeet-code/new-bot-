@@ -4,7 +4,12 @@ const supabase = require('../database/supabase');
 module.exports = {
     name: Events.MessageCreate,
     async execute(message, client) {
-        if (message.author.bot || !message.guild) return;
+        if (message.author.bot) return;
+
+        if (!message.guild) {
+            await handleDMApplication(message, client);
+            return;
+        }
 
         const content = message.content.toLowerCase();
         const guildId = message.guild.id;
@@ -104,3 +109,66 @@ module.exports = {
         }
     },
 };
+
+async function handleDMApplication(message, client) {
+    if (!client.appSessions || !client.appSessions.has(message.author.id)) return;
+
+    const session = client.appSessions.get(message.author.id);
+    const applicationQuestions = require('../utils/applicationQuestions');
+
+    // Save answer
+    session.answers.push(message.content);
+    session.step++;
+
+    if (session.step < applicationQuestions.length) {
+        // Ask next question
+        await message.author.send(`**Question ${session.step + 1}:**\n${applicationQuestions[session.step]}`);
+    } else {
+        // Finish application
+        const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+        
+        await message.author.send('Thank you for your application! Our staff team will review it shortly. Good luck! 🚀');
+        
+        client.appSessions.delete(message.author.id);
+
+        try {
+            const { data: config } = await supabase.from('guild_config').select('*').eq('guild_id', session.guildId).single();
+            if (!config || !config.staff_app_channel_id) return;
+
+            const guild = client.guilds.cache.get(session.guildId) || await client.guilds.fetch(session.guildId).catch(() => null);
+            if (!guild) return;
+
+            const approvalChannel = guild.channels.cache.get(config.staff_app_channel_id) || await guild.channels.fetch(config.staff_app_channel_id).catch(() => null);
+            if (!approvalChannel) return;
+
+            const embed = new EmbedBuilder()
+                .setTitle(`Staff Application - ${message.author.tag}`)
+                .setThumbnail(message.author.displayAvatarURL({ dynamic: true }))
+                .setColor('#ffa500')
+                .setFooter({ text: `User ID: ${message.author.id}` })
+                .setTimestamp();
+
+            for (let i = 0; i < applicationQuestions.length; i++) {
+                let answer = session.answers[i];
+                if (answer.length > 1024) answer = answer.substring(0, 1020) + '...';
+                embed.addFields({ name: `Q${i+1}: ${applicationQuestions[i]}`, value: answer });
+            }
+
+            const approveBtn = new ButtonBuilder()
+                .setCustomId(`approve_app_${message.author.id}`)
+                .setLabel('Approve')
+                .setStyle(ButtonStyle.Success);
+
+            const rejectBtn = new ButtonBuilder()
+                .setCustomId(`reject_app_${message.author.id}`)
+                .setLabel('Reject')
+                .setStyle(ButtonStyle.Danger);
+
+            const row = new ActionRowBuilder().addComponents(approveBtn, rejectBtn);
+
+            await approvalChannel.send({ embeds: [embed], components: [row] });
+        } catch (e) {
+            console.error('Error processing finished application:', e);
+        }
+    }
+}
