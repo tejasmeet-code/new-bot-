@@ -79,7 +79,7 @@ module.exports = {
         if (dbError) {
             console.error('Database Error:', dbError);
             if (context.reply) {
-                return context.reply({ content: `Database error: Could not save the channel. Did you run the SQL command \`ALTER TABLE guild_config ADD COLUMN staff_app_channel_id TEXT;\` in Supabase?`, ephemeral: true });
+                return context.reply({ content: `Database error: ${dbError.message || JSON.stringify(dbError)}. Did you run the CREATE TABLE SQL command in Supabase?`, ephemeral: true });
             }
             return;
         }
