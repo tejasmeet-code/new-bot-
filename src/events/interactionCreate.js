@@ -185,7 +185,7 @@ async function handleStartApplication(interaction, client) {
 
 async function handleApproveRejectApp(interaction, client) {
     if (!interaction.member.permissions.has(PermissionFlagsBits.Administrator)) {
-        return interaction.reply({ content: 'Only Administrators can approve or reject applications.', ephemeral: true });
+        return interaction.reply({ content: '<:failure:1517469374594945134> Only Administrators can approve or reject applications.', ephemeral: true });
     }
 
     const isApprove = interaction.customId.startsWith('approve_app_');
@@ -202,15 +202,19 @@ async function handleApproveRejectApp(interaction, client) {
 
     try {
         const user = await client.users.fetch(targetUserId);
-        if (user) {
-            const statusMsg = isApprove 
-                ? `Congratulations! Your staff application for **${interaction.guild.name}** has been **APPROVED**.`
-                : `We regret to inform you that your staff application for **${interaction.guild.name}** has been **REJECTED**.`;
+        const member = await interaction.guild.members.fetch(targetUserId).catch(() => null);
+
+        if (isApprove && member) {
+            const hiredCommand = require('../commands/moderation/hired');
+            const success = await hiredCommand.handleHired(interaction.guild, member);
+            if (!success) {
+                console.error(`Failed to assign staff roles to ${targetUserId} after approval.`);
+            }
+        } else if (!isApprove && user) {
+            const statusMsg = `We regret to inform you that your staff application for **${interaction.guild.name}** has been **REJECTED**.`;
             await user.send(statusMsg).catch(() => {});
         }
     } catch (e) {
-        console.error('Failed to DM user application status:', e);
+        console.error('Failed to process application status:', e);
     }
 }
-
-// Add these to module.exports if necessary, or just append them to the file.
